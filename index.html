@@ -78,7 +78,13 @@
     .instructions-section p {
       font-size: 12px;
       color: #d0d0d0;
-      margin-bottom: 0;
+      margin-bottom: 6px;
+    }
+
+    .review-note {
+      font-size: 11px !important;
+      color: #aaaaaa !important;
+      font-style: italic;
     }
 
     .toggle-info-btn {
@@ -246,30 +252,27 @@
       background-color: #0056b3;
     }
 
-    /* Estilo del Pop-up */
+    /* Estilo del Pop-up (solo nombre) */
     .leaflet-popup-content-wrapper {
       background-color: #242323;
       color: #ffffff;
       border-radius: 8px;
+      padding: 4px 8px;
     }
     .leaflet-popup-tip {
       background-color: #242323;
     }
     .pool-popup h4 {
-      font-size: 16px;
-      margin-bottom: 6px;
+      font-size: 15px;
       color: #00d2ff;
-    }
-    .pool-popup p {
-      font-size: 12px;
-      margin-bottom: 4px;
-      color: #dddddd;
+      margin: 4px 0;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-  <!-- Cuadro de información e instrucciones -->
+  <!-- Cuadro transparente de información e instrucciones -->
   <div class="info-box" id="infoBox">
     <h3>
       <span>🌊 What is a Sea Pool?</span>
@@ -283,6 +286,9 @@
       <h4>📌 How to add a Sea Pool:</h4>
       <p>
         Navigate to your known sea pool on the map, click on its location to set a pin, then press the <strong>"+ Add a Sea Pool"</strong> button and complete the form.
+      </p>
+      <p class="review-note">
+        Once submitted, our team will review the details before adding the sea pool to the official map.
       </p>
     </div>
   </div>
@@ -358,19 +364,12 @@
       attribution: '© Google Maps'
     }).addTo(map);
 
+    // Mapeo para mostrar ÚNICAMENTE el nombre de la piscina marina
     function createPopup(props) {
       let name = "Sea Pool";
       for (let key in props) {
-        if (/name|nombre|title|id/i.test(key) && props[key]) {
+        if (/sp_name|name|nombre|title/i.test(key) && props[key]) {
           name = props[key];
-          break;
-        }
-      }
-
-      let desc = "";
-      for (let key in props) {
-        if (/desc|caracteristica|info|notes/i.test(key) && props[key]) {
-          desc = `<p>${props[key]}</p>`;
           break;
         }
       }
@@ -378,12 +377,11 @@
       return `
         <div class="pool-popup">
           <h4>🌊 ${name}</h4>
-          ${desc}
         </div>
       `;
     }
 
-    // 3. CARGA DIRECTA DE TUS DATOS DESDE GITHUB RAW
+    // 3. CARGA DIRECTA DE DATOS DESDE GITHUB RAW USANDO PUNTOS CIRCULARES AZULES
     const rawGeoJSONUrl = 'https://raw.githubusercontent.com/Nareme12/Interactive-Map-Sea-Pools/main/Atlas_Sea_pool_v_1.json';
 
     fetch(rawGeoJSONUrl)
@@ -393,6 +391,17 @@
       })
       .then(data => {
         const geojsonLayer = L.geoJSON(data, {
+          // Renderizar cada elemento como un círculo en lugar del pin por defecto
+          pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, {
+              radius: 6,           // Tamaño del círculo
+              fillColor: "#00d2ff", // Color azul cyan brillante de rellenado
+              color: "#ffffff",    // Borde blanco
+              weight: 1.5,         // Grosor del borde
+              opacity: 1,
+              fillOpacity: 0.85
+            });
+          },
           onEachFeature: function (feature, layer) {
             layer.bindPopup(createPopup(feature.properties || {}));
           }
