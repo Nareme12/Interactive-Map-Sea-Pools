@@ -29,13 +29,13 @@
       z-index: 1;
     }
 
-    /* Cuadro transparente de información sobre Sea Pools */
+    /* Cuadro transparente de información e instrucciones */
     .info-box {
       position: absolute;
       top: 20px;
       left: 20px;
       z-index: 1000;
-      background: rgba(30, 30, 30, 0.85);
+      background: rgba(30, 30, 30, 0.88);
       backdrop-filter: blur(8px);
       color: #ffffff;
       padding: 18px 22px;
@@ -58,6 +58,27 @@
     .info-box p {
       font-size: 13px;
       color: #e0e0e0;
+      margin-bottom: 12px;
+    }
+
+    .instructions-section {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 10px;
+      margin-top: 6px;
+    }
+
+    .instructions-section h4 {
+      font-size: 13px;
+      color: #00ff88;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .instructions-section p {
+      font-size: 12px;
+      color: #d0d0d0;
+      margin-bottom: 0;
     }
 
     .toggle-info-btn {
@@ -225,7 +246,7 @@
       background-color: #0056b3;
     }
 
-    /* Estilo del Pop-up de piscinas creadas con GeoJSON */
+    /* Estilo del Pop-up de piscinas creadas */
     .leaflet-popup-content-wrapper {
       background-color: #242323;
       color: #ffffff;
@@ -255,15 +276,23 @@
 </head>
 <body>
 
-  <!-- Cuadro transparente de información sobre Sea Pools -->
+  <!-- Cuadro transparente de información e instrucciones -->
   <div class="info-box" id="infoBox">
     <h3>
       <span>🌊 What is a Sea Pool?</span>
       <button class="toggle-info-btn" id="closeInfoBtn">&times;</button>
     </h3>
-    <p id="infoText">
+    <p>
       A sea pool is a blue space located in the intertidal zone that provides safer swimming conditions than the open ocean, thanks to integrated walls, breakwaters, or rock barriers offering protection against waves, marine fauna, and strong currents.
     </p>
+
+    <!-- Sub-apartado de Instrucciones -->
+    <div class="instructions-section">
+      <h4>📌 How to add a Sea Pool:</h4>
+      <p>
+        Navigate to your known sea pool on the map, click on its location to set a pin, then press the <strong>"+ Add a Sea Pool"</strong> button and complete the form.
+      </p>
+    </div>
   </div>
 
   <!-- Botón superior -->
@@ -334,51 +363,56 @@
     // 1. Inicializar el Mapa (Centrado en Canarias / España)
     const map = L.map('map').setView([28.291565, -16.629130], 9);
 
-    // 2. Cargar Capa Satelital de Google Maps
+    // 2. Capa Satelital de Google Maps
     L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
       maxZoom: 20,
       subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
       attribution: '© Google Maps'
     }).addTo(map);
 
-    // ==========================================
-    // 3. CARGAR EL ARCHIVO GEOJSON SUBIDO
-    // ==========================================
-    fetch('piscinas.geojson')
+    // Función auxiliar para renderizar el contenido desplegable (popup) de cada piscina
+    function renderPopup(props) {
+      const name = props.name || props.Nombre || props.Sea_Pool_Name || props.pool_name || props.title || "Sea Pool";
+      const description = props.description || props.Descripcion || props.Description || "";
+      const date = props.date || props.Fecha || props.Acquisition_Date || "";
+      const image = props.image || props.Imagen || props.photo || "";
+
+      return `
+        <div class="pool-popup">
+          <h4>🌊 ${name}</h4>
+          ${date ? `<p><strong>Observed:</strong> ${date}</p>` : ''}
+          ${description ? `<p>${description}</p>` : ''}
+          ${image ? `<img src="${image}" alt="${name}">` : ''}
+        </div>
+      `;
+    }
+
+    // 3. CARGA DEL ARCHIVO JSON ESPECÍFICO (Atlas_Sea_pool_v_1.json)
+    fetch('Atlas_Sea_pool_v_1.json')
       .then(response => {
         if (!response.ok) {
-          throw new Error('No se pudo encontrar el archivo piscinas.geojson');
+          throw new Error('Atlas_Sea_pool_v_1.json no encontrado');
         }
         return response.json();
       })
       .then(data => {
-        L.geoJSON(data, {
+        // Carga como capa GeoJSON
+        const geojsonLayer = L.geoJSON(data, {
           onEachFeature: function (feature, layer) {
-            const props = feature.properties || {};
-
-            // Compatibilidad con los posibles nombres de tus columnas en el GeoJSON
-            const name = props.name || props.Nombre || props.title || "Sea Pool";
-            const description = props.description || props.Descripcion || "";
-            const date = props.date || props.Fecha || "";
-            const image = props.image || props.Imagen || props.photo || "";
-
-            const popupContent = `
-              <div class="pool-popup">
-                <h4>🌊 ${name}</h4>
-                ${date ? `<p><strong>Observed:</strong> ${date}</p>` : ''}
-                ${description ? `<p>${description}</p>` : ''}
-                ${image ? `<img src="${image}" alt="${name}">` : ''}
-              </div>
-            `;
-            layer.bindPopup(popupContent);
+            layer.bindPopup(renderPopup(feature.properties || {}));
           }
         }).addTo(map);
-      })
-      .catch(error => console.warn('GeoJSON Note:', error.message));
 
-    // ==========================================
+        // Centra el mapa automáticamente en los datos cargados
+        if (geojsonLayer.getBounds().isValid()) {
+          map.fitBounds(geojsonLayer.getBounds());
+        }
+      })
+      .catch(error => {
+        console.warn('Nota sobre Atlas_Sea_pool_v_1.json:', error.message);
+      });
+
     // 4. CONTROL DE INTERFAZ Y FORMULARIO
-    // ==========================================
     let userMarker = null;
     const modal = document.getElementById('formModal');
     const openBtn = document.getElementById('openFormBtn');
@@ -389,12 +423,12 @@
     const lngInput = document.getElementById('longitude');
     const locationStatus = document.getElementById('locationStatus');
 
-    // Cerrar cuadro informativo
+    // Cerrar ventana de información
     closeInfoBtn.addEventListener('click', () => {
       infoBox.style.display = 'none';
     });
 
-    // Abrir modal solo al hacer clic en "+ Add a Sea Pool"
+    // Abrir modal solo al pulsar el botón
     openBtn.addEventListener('click', () => {
       modal.style.display = 'flex';
     });
@@ -404,7 +438,7 @@
       modal.style.display = 'none';
     });
 
-    // Clic en el mapa para marcar una ubicación
+    // Clic en el mapa para marcar ubicación
     map.on('click', function(e) {
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
